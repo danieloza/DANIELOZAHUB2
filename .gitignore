@@ -1,0 +1,17 @@
+﻿.env
+.env.*
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+logs/
+data/
+backups/
+invoices/
+_archive/
+*.sqlite
+*.db
+*.log
+*credentials*.json
+*service-account*.json
+danex-faktury-bot.json
