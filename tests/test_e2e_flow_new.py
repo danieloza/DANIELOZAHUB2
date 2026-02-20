@@ -183,6 +183,7 @@ def test_mama_kwota_ok_sets_status_when_complete():
         patch.object(messages, "is_allowed", return_value=True),
         patch.object(messages, "is_mama", return_value=True),
         patch.object(messages, "get_row", return_value=row),
+        patch.object(messages, "_find_next_after", return_value=None),
         patch.object(messages, "missing_fields", return_value=[]),
         patch.object(messages, "update_cell", return_value=None) as upd,
     ):
