@@ -2,6 +2,13 @@
 
 Telegram bot for invoice handling (PDF/images): OCR, validation workflow, and export/integration layer.
 
+[![CI](https://github.com/danieloza/DANIELOZAHUB2/actions/workflows/ci.yml/badge.svg)](https://github.com/danieloza/DANIELOZAHUB2/actions/workflows/ci.yml)
+
+## Hiring Snapshot
+- Built a production-style Telegram workflow for invoice operations (OCR + validation + review states).
+- Added duplicate protection (file hash + OCR hash) and audit-friendly processing flows.
+- Included automated tests and security hygiene practices for portfolio-safe publishing.
+
 ## What It Does
 - Accepts invoices as `PDF/JPG/PNG`
 - Extracts key fields (date, number, company, gross amount)
