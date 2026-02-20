@@ -27,6 +27,7 @@ PyMuPDF==1.26.7
 pyparsing==3.3.2
 pytesseract==0.3.13
 python-telegram-bot[job-queue]==21.4
+python-dotenv==1.0.1
 reportlab==4.4.9
 requests==2.32.5
 requests-oauthlib==2.0.0
