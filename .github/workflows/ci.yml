@@ -31,4 +31,4 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: "dummy-token-for-ci"
         run: |
-          pytest -q tests
+          python -m pytest -q tests
