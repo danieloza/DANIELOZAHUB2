@@ -29,6 +29,16 @@ Telegram bot for invoice handling (PDF/images): OCR, validation workflow, and ex
 - OCR pipeline + storage adapters
 - Pytest test suite
 
+## Run In 2 Minutes (Smoke Proof)
+```bash
+git clone https://github.com/danieloza/DANIELOZAHUB2.git
+cd DANIELOZAHUB2
+python -m pip install -r requirements.txt && python -m pytest -q tests
+```
+
+Proof:
+- passing `pytest` smoke/tests without production credentials
+
 ## Run Local
 ```bash
 git clone https://github.com/danieloza/DANIELOZAHUB2.git
