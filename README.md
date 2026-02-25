@@ -30,18 +30,30 @@ Telegram bot for invoice handling (PDF/images): OCR, validation workflow, and ex
 - Pytest test suite
 
 ## Run Local
-```powershell
-cd C:\Users\syfsy\projekty\danex-faktury-bot
+```bash
+git clone https://github.com/danieloza/DANIELOZAHUB2.git
+cd DANIELOZAHUB2
 python -m venv .venv
+```
+
+Activate virtual environment:
+```bash
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows PowerShell
 .\.venv\Scripts\Activate.ps1
+```
+
+Install and run:
+```bash
 pip install -r requirements.txt
-.\.venv\Scripts\python.exe bot.py
+python bot.py
 ```
 
 ## Tests
-```powershell
-cd C:\Users\syfsy\projekty\danex-faktury-bot
-.\.venv\Scripts\python.exe -m pytest -q tests
+```bash
+python -m pytest -q tests
 ```
 
 ## Security Before Publishing
@@ -70,3 +82,8 @@ Suggested `.gitignore` entries:
 ## Portfolio Note
 This repository is suitable for portfolio as a sanitized technical showcase.
 If connected to real client operations, keep the GitHub repo private.
+
+## Release and License
+- Release: `v0.1.0`
+- License: `MIT` (see `LICENSE`)
+- Changelog: `CHANGELOG.md`
