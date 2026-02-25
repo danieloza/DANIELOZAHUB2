@@ -42,7 +42,9 @@ from config import (
 from domain.audit import begin_request, log_event
 from domain.idempotency import find_duplicate, find_duplicate_content, register_content_hash, register_file_hash
 from domain.invoices import missing_fields, today_ymd, user_label, vat_net_from_gross
+from domain.mappers import preview_fields_map
 from domain.metrics import record_metric
+from domain.smart_logic import is_soft_duplicate, predict_category, sanitize_company_name
 from keyboards import kb_invoice, kb_mama_company_suggestions, kb_mama_next_only, kb_mama_review_tiles, kb_mama_tiles, kb_page
 from ocr_service import extract_fields, ocr_image, ocr_pdf, parse_amount, setup_tesseract
 from sheets_service import drive, ensure_drive_root
@@ -305,7 +307,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         record_metric("ocr_process", ok=False, latency_ms=int((time.perf_counter() - t0) * 1000), source=("pdf" if is_pdf else "image"))
         log_event("ocr_failed", user_id=uid, request_id=request_id, error=str(exc))
         STATE.pop(uid, None)
-        return await update.message.reply_text("OCR nie powiodl sie. Sprobuj ponownie.", reply_markup=menu_kb(update))
+        return await update.message.reply_text("❌ OCR nie powiodl sie. Sprobuj ponownie.", reply_markup=menu_kb(update))
 
     file_hash = sha256_file(local)
     dup = find_duplicate(file_hash)
@@ -314,37 +316,78 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log_event("invoice_duplicate_rejected", user_id=uid, file_hash=file_hash, duplicate_of=dup, request_id=request_id)
         row_ref = dup.get("row_no", "?")
         return await update.message.reply_text(
-            f"Duplikat pliku. Ta faktura byla juz dodana (wiersz {row_ref}).",
+            f"🔁 Duplikat pliku. Ta faktura byla juz dodana (wiersz {row_ref}).",
             reply_markup=menu_kb(update),
         )
 
-    fields = extract_fields(text)
-    content_hash = content_hash_from_fields(fields, inv_type)
-    dup_content = find_duplicate_content(content_hash)
-    if dup_content:
-        STATE.pop(uid, None)
-        log_event(
-            "invoice_duplicate_content_rejected",
-            user_id=uid,
-            request_id=request_id,
-            content_hash=content_hash,
-            duplicate_of=dup_content,
-        )
-        row_ref = dup_content.get("row_no", "?")
-        return await update.message.reply_text(
-            f"Mozliwy duplikat po tresci OCR (wiersz {row_ref}). Sprawdz przed dodaniem.",
-            reply_markup=menu_kb(update),
-        )
-
+    # Senior IT: Variable Scoping - Initialize defaults early
+    vat_s = ""
+    net_s = ""
+    content_hash = ""
+    
     up_m = month_now()
     try:
         link = upload_to_drive(local, up_m)
     except Exception:
         link = local.name
+    
+    fields = await extract_fields(text)
+    
+    # Senior IT: Smart Sanitize & Categorize
+    if fields.get("company"):
+        fields["company"] = sanitize_company_name(fields["company"])
+    
+    content_hash = content_hash_from_fields(fields, inv_type)
+    
+    # Senior IT: Premium Features (NBP + WhiteList + Supplier Intel)
+    from domain.premium_ocr import extract_currency, extract_nip
+    from domain.premium_finance import get_nbp_rate, check_nip_white_list
+    from domain.supplier_intel import get_supplier_info, remember_supplier
+    
+    currency = extract_currency(text)
+    nip = extract_nip(text)
+    
+    # Smart Category from Supplier Intel
+    intel = get_supplier_info(nip)
+    smart_cat = intel['category'] if intel else predict_category(fields.get("company", ""))
+    
+    # Senior IT: Hyper-Premium Smart Tagging
+    from domain.premium_ux import get_smart_tags
+    tags = get_smart_tags(text)
+    if tags:
+        smart_cat = f"{smart_cat} ({', '.join(tags)})"
+    
+    if nip:
+        wl_check = check_nip_white_list(nip)
+        if not wl_check['ok']:
+            await update.message.reply_text(f"⚠️ *OSTRZEZENIE:* {wl_check['msg']}\nSprawdz poprawnosc NIP: `{nip}`", parse_mode="Markdown")
+        
+        # Remember this supplier for next time if we have company name
+        if fields.get("company"):
+            remember_supplier(nip, fields["company"], smart_cat)
 
+    # Senior IT: Expense Guard (Anomaly Detection)
+    from domain.analytics import analyze_expense_anomaly
     gross_f = parse_amount(fields.get("gross", ""))
-    vat_s = ""
-    net_s = ""
+    
+    if fields.get("company") and gross_f > 0:
+        is_anomaly, anomaly_msg = analyze_expense_anomaly(gross_f, fields["company"], get_all_values(update))
+        if is_anomaly:
+            await update.message.reply_text(f"{anomaly_msg}\nCzy to na pewno poprawna kwota?", parse_mode="Markdown")
+
+    # Senior IT: Scan & Pay (Overpowered Feature)
+    from domain.payments import extract_iban, generate_payment_qr_url
+    iban = extract_iban(text)
+    if iban and gross_f > 0:
+        qr_url = generate_payment_qr_url(iban, gross_f, f"Faktura {fields.get('no', 'FV')}", fields.get("company", "Dostawca"))
+        await update.message.reply_text(
+            f"💸 <b>SCAN &amp; PAY (Fintech Mode)</b>\n"
+            f"Wykryto numer konta: <code>{iban}</code>\n"
+            f"Kliknij, aby zobaczyć kod QR do płatności:\n{qr_url}",
+            parse_mode="HTML"
+        )
+
+    # Senior IT: Financial Calculation (VAT/Net)
     if inv_type == TYPE_VAT and gross_f > 0:
         vat, net = vat_net_from_gross(gross_f)
         vat_s = f"{vat:.2f}"
@@ -358,7 +401,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     preview[COL_TYPE - 1] = inv_type
     preview[COL_VAT - 1] = vat_s
     preview[COL_NET - 1] = net_s
-    preview[COL_CAT - 1] = DEFAULT_CATEGORY
+    preview[COL_CAT - 1] = smart_cat if smart_cat != "inne" else DEFAULT_CATEGORY
     preview[COL_USER - 1] = user_label(update)
     preview[COL_STATUS - 1] = STATUS_NEW
     preview[COL_FILE - 1] = link
@@ -374,7 +417,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log_event("invoice_queue_fallback", user_id=uid, request_id=request_id, error=str(exc))
         STATE.pop(uid, None)
         return await update.message.reply_text(
-            "Backend chwilowo niedostepny. Zapis trafil do retry queue i zostanie ponowiony automatycznie.",
+            "⚠️ Backend chwilowo niedostepny. Zapis trafil do retry queue i zostanie ponowiony automatycznie.",
             reply_markup=menu_kb(update),
         )
 
@@ -391,6 +434,12 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         content_hash=content_hash,
         request_id=request_id,
     )
+    
+    # Senior IT: Teach the Brain (RAG)
+    try:
+        from domain.rag_bridge import teach_rag_invoice
+        teach_rag_invoice(preview_fields_map(preview), text)
+    except: pass
 
     if is_mama(update):
         month = (preview[COL_DATE - 1] or "")[:7]
@@ -424,7 +473,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     name=f"mama_amount_reminder_{uid}_{row_no}",
                 )
             await update.message.reply_text(
-                "Dodane. Za chwile poprosze o kwote, jesli bedzie brak.",
+                "🧾 Dodane (brak kwoty). Wybierz firme, a potem wpisz kwote lub **nagraj ja glosowo**.",
                 reply_markup=kb_mama_company_suggestions(uniq_companies, large_font=large_font),
             )
             return
@@ -439,7 +488,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "last_step": f"add:ok:{row_no}",
         }
         await update.message.reply_text(
-            "Zapisane. Potwierdz firme albo zostaw OCR.",
+            "✅ Zapisane. Potwierdz firme albo zostaw OCR.",
             reply_markup=kb_mama_company_suggestions(uniq_companies, large_font=large_font),
         )
         return
@@ -453,5 +502,6 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def register(app):
     app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_file))
+
 
 

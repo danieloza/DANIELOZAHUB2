@@ -20,6 +20,15 @@ from config import (
 from storage_router import get_all_values, get_row, update_cell
 from domain.invoices import missing_fields  # jeli masz; jak nie masz, daj zna
 from domain.audit import log_event
+from keyboards import (
+    kb_page,
+    kb_mama_tiles,
+    kb_add_type,
+    kb_years,
+    kb_months_of_year,
+    kb_invoice,
+    kb_ocr_fields
+)
 
 # =========================
 #  USTAWIENIA / STAE
@@ -451,6 +460,52 @@ async def on_click(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if any(data.startswith(pf) for pf in mutating_prefixes) and not is_operator(update):
         return await safe_edit(q, "Tylko operator lub admin moze zmieniac dane.", kb_page(1))
 
+
+    if data.startswith("mom:"):
+        # Senior IT: Context-aware Mama callbacks
+        sub = data.split(":")[1]
+        
+        if sub == "menu":
+            STATE.pop(uid, None)
+            from domain.audit import count_last_hours
+            from domain.state_cache import get_todo_count_cached
+            from config import is_mama
+            
+            todo_count = get_todo_count_cached()
+            today_count = count_last_hours(24)
+            reply_markup = kb_mama_tiles(todo_count=todo_count, today_count=today_count)
+            
+            msg = "🏠 Wrocilam do menu głównego."
+            if is_mama(update):
+                # For mama, we can just send a new message or edit
+                await q.message.reply_text(msg, reply_markup=reply_markup)
+            else:
+                await q.message.reply_text(msg, reply_markup=reply_markup)
+                await q.message.reply_text("Opcje zaawansowane:", reply_markup=kb_page(1))
+            return True
+            
+        if sub == "todo_now":
+            # Redirect to the text-based handler logic
+            from handlers.messages import _handle_mama_text
+            await _handle_mama_text(update, ctx, "co mam poprawic")
+            return
+            
+        if sub == "export_now":
+            from handlers.messages import _handle_mama_text
+            await _handle_mama_text(update, ctx, "wyslij do ksiegowej")
+            return
+
+        if sub == "ok":
+            row_no = int(data.split(":")[2])
+            from handlers.messages import _handle_mama_text
+            STATE[uid].update({"mode": "mama_review", "row": str(row_no)})
+            await _handle_mama_text(update, ctx, "kwota ok")
+            return
+
+        if sub == "fix":
+            row_no = int(data.split(":")[2])
+            STATE[uid].update({"mode": "mama_set_price", "row": str(row_no)})
+            return await safe_edit(q, f"Podaj poprawna kwote dla faktury #{row_no} (np. 123,45).")
 
     # --- MENU PAGES ---
     if data.startswith("m:page:"):

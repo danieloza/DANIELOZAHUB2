@@ -4,7 +4,7 @@ from config import (
     COL_DATE, COL_NO, COL_GROSS, COL_STATUS, COL_TYPE,
     STATUS_TODO, STATUS_OK, TYPE_VAT
 )
-from ocr_service import parse_amount
+from domain.utils import parse_amount
 
 def today_ymd() -> str:
     return datetime.now().strftime("%Y-%m-%d")

@@ -53,7 +53,7 @@ async def _send_todo_reminder(ctx):
             st = compute_month_stats(upd, month)
             mama = mama_activity_last_24h(mama_ids())
             txt = (
-                f"MAMA SKROT {month}\n"
+                f"📊 MAMA SKROT {month}\n"
                 f"Dodala (24h): {mama.get('added', 0)}\n"
                 f"Czeka na poprawe: {len(st['todo'])}\n"
                 f"Brak kwoty: {len(st['todo_missing_price'])}\n"
@@ -70,7 +70,7 @@ async def _send_mama_daily_one_button(ctx):
         try:
             await ctx.bot.send_message(
                 chat_id=uid,
-                text="Dzisiaj dodaj fakture",
+                text="🧾 Dzisiaj dodaj fakture",
                 reply_markup=kb_mama_daily_one_button(),
             )
         except Exception:
@@ -82,7 +82,7 @@ async def _send_weekly_admin_report(ctx):
     tops = summary.get("top_fixed", [])
     tops_txt = "\n".join(f"- wiersz {x.get('row')}: {x.get('count')} poprawek" for x in tops) if tops else "- brak"
     msg = (
-        "RAPORT TYGODNIOWY MAMA\n"
+        "🗓️ RAPORT TYGODNIOWY MAMA\n"
         f"dodane: {summary.get('added', 0)}\n"
         f"czeka: {summary.get('waiting', 0)}\n"
         f"wyslane: {summary.get('sent', 0)}\n"
@@ -119,7 +119,7 @@ async def _monitor_mama_soft_alerts(ctx):
             continue
 
         msg = (
-            "MAMA SOFT ALERT\n"
+            "🚨 MAMA SOFT ALERT\n"
             f"reason: stuck_over_{MAMA_STUCK_ALERT_MIN}min\n"
             f"user_id: {uid}\n"
             f"mode: {mode}\n"
@@ -144,7 +144,7 @@ async def _maintenance_job(ctx):
     if not admin_ids():
         return
     msg = (
-        "MAINTENANCE\n"
+        "🛠️ MAINTENANCE\n"
         f"retry_ok: {res_retry.get('ok')} | retry_failed: {res_retry.get('failed')} | to_dlq: {res_retry.get('moved_to_dlq')}\n"
         f"retention: inv={res_ret.get('deleted_invoices')} logs={res_ret.get('deleted_logs')} anon={res_ret.get('anonymized_audit_rows')}\n"
         f"restore_test_ok: {res_restore.get('ok')} | rows={res_restore.get('rows', 0)} | err={res_restore.get('error', '') or 'none'}\n"
@@ -157,10 +157,40 @@ async def _maintenance_job(ctx):
             continue
 
 
+async def _month_end_guard(ctx):
+    """Senior IT: Proactively alert about pending invoices at month end."""
+    from datetime import datetime
+    if datetime.now().day < 25:
+        return
+        
+    month = today_ym()
+    for uid in sorted(mama_ids()):
+        upd = _fake_update(uid)
+        try:
+            get_all_values(upd)
+            st = compute_month_stats(upd, month)
+            pending = len(st['todo']) + len(st['todo_missing_price'])
+            if pending > 0:
+                msg = (
+                    f"📅 *Koniec miesiąca blisko!* \n\n"
+                    f"Masz jeszcze *{pending}* faktur do poprawienia w tym miesiącu ({month}).\n"
+                    f"Kliknij `📋 Co mam poprawic`, żeby dokończyć przed wysyłką do księgowej."
+                )
+                await ctx.bot.send_message(chat_id=uid, text=msg, parse_mode="Markdown")
+        except:
+            pass
+
 def register_reminders(app: Application) -> None:
     if app.job_queue is None:
         log.warning("JobQueue unavailable. Install python-telegram-bot[job-queue] to enable reminders.")
         return
+
+    # Check for month end every day at 10 AM
+    app.job_queue.run_daily(
+        _month_end_guard,
+        time=time(hour=10, minute=0),
+        name="month_end_guard",
+    )
 
     app.job_queue.run_daily(
         _send_mama_daily_one_button,
@@ -193,4 +223,5 @@ def register_reminders(app: Application) -> None:
             first=60,
             name="maintenance_job",
         )
+
 

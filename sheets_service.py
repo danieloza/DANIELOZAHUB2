@@ -83,7 +83,21 @@ def ensure_drive_root():
 
 
 def get_all_values():
-    return _with_retry(lambda: ws().get_all_values(), "get_all_values")
+    rows = _with_retry(lambda: ws().get_all_values(), "get_all_values")
+    
+    # Senior IT: Update stats cache
+    from domain.state_cache import update_todo_count
+    from config import STATUS_TODO, COL_STATUS
+    
+    # Check status column (index COL_STATUS-1 because list is 0-indexed)
+    status_idx = COL_STATUS - 1
+    count = 0
+    for row in rows:
+        if len(row) > status_idx and row[status_idx] == STATUS_TODO:
+            count += 1
+    update_todo_count(count)
+    
+    return rows
 
 
 def get_row(row_no: int):

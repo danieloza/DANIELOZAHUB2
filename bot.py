@@ -1,8 +1,10 @@
 ﻿# -*- coding: utf-8 -*-
 import logging
+import structlog
 from logging.handlers import RotatingFileHandler
 
-from telegram.ext import ApplicationBuilder
+from telegram.ext import ApplicationBuilder, ContextTypes
+from datetime import datetime
 
 from config import ENV_TG, LOGS_DIR, backup_env_file, must, validate_startup_env
 from domain.retention import apply_retention
@@ -18,17 +20,32 @@ def setup_logging() -> None:
     log_file = LOGS_DIR / "bot.log"
     handlers = [
         logging.StreamHandler(),
-        RotatingFileHandler(log_file, maxBytes=2_000_000, backupCount=5, encoding="utf-8"),
+        RotatingFileHandler(log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"),
     ]
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        format="%(message)s",
         handlers=handlers,
+    )
+
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer(),
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
     )
 
 
 setup_logging()
-log = logging.getLogger("danex")
+log = structlog.get_logger("danex.faktury")
+
+async def heartbeat_task(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Senior IT: Regular sign of life."""
+    log.info("bot_heartbeat", status="alive", timestamp=datetime.now().isoformat())
 
 
 def main():
@@ -46,8 +63,21 @@ def main():
 
     ret = apply_retention()
     log.info("Retention startup run: %s", ret)
+    
+    # Senior IT: Startup Health Check
+    from domain.integrity import get_system_health_checklist
+    checks = get_system_health_checklist()
+    for name, ok, det in checks:
+        if ok:
+            log.info(f"STARTUP CHECK: {name} ... OK")
+        else:
+            log.error(f"STARTUP CHECK: {name} ... FAIL ({det})")
 
     app = ApplicationBuilder().token(must(ENV_TG)).build()
+
+    # Senior IT: Pulse heartbeat every hour
+    if app.job_queue:
+        app.job_queue.run_repeating(heartbeat_task, interval=3600, first=10)
 
     register_commands(app)
     register_callbacks(app)

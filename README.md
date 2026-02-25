@@ -31,7 +31,7 @@ Telegram bot for invoice handling (PDF/images): OCR, validation workflow, and ex
 
 ## Run Local
 ```powershell
-cd C:\Users\syfsy\danex-faktury-bot
+cd C:\Users\syfsy\projekty\danex-faktury-bot
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 
 ## Tests
 ```powershell
-cd C:\Users\syfsy\danex-faktury-bot
+cd C:\Users\syfsy\projekty\danex-faktury-bot
 .\.venv\Scripts\python.exe -m pytest -q tests
 ```
 

@@ -7,25 +7,24 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 def kb_page(page: int) -> InlineKeyboardMarkup:
     if page == 1:
         return InlineKeyboardMarkup([
-            [InlineKeyboardButton("Dodaj fakture", callback_data="m:add")],
-            [InlineKeyboardButton("Podglad miesiaca", callback_data="m:snap_year")],
-            [InlineKeyboardButton("Do sprawdzenia", callback_data="m:todo_year")],
-            [InlineKeyboardButton("Do sprawdzenia (brak kwoty)", callback_data="m:todo_missing_year")],
-            [InlineKeyboardButton("Paczka ZIP do ksiegowej", callback_data="m:pack_year")],
-            [InlineKeyboardButton("Wiecej", callback_data="m:page:2")],
+            [InlineKeyboardButton("🧾 Dodaj fakturę", callback_data="m:add")],
+            [InlineKeyboardButton("📅 Podgląd miesiąca", callback_data="m:snap_year")],
+            [InlineKeyboardButton("🔍 Do sprawdzenia", callback_data="m:todo_year")],
+            [InlineKeyboardButton("💸 Do sprawdzenia (brak kwoty)", callback_data="m:todo_missing_year")],
+            [InlineKeyboardButton("📦 Paczka ZIP do księgowej", callback_data="m:pack_year")],
+            [InlineKeyboardButton("➕ Więcej", callback_data="m:page:2")],
         ])
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Diagnostyka", callback_data="m:diag")],
-        [InlineKeyboardButton("Menu", callback_data="m:page:1")],
+        [InlineKeyboardButton("🛠️ Diagnostyka", callback_data="m:diag")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="m:page:1")],
     ])
 
 
 def kb_mama_page() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Dodaj fakture", callback_data="m:add")],
-        [InlineKeyboardButton("Co mam poprawic", callback_data="mom:todo_now")],
-        [InlineKeyboardButton("Wyslij do ksiegowej", callback_data="mom:export_now")],
-        [InlineKeyboardButton("Pomoc", callback_data="mom:help")],
+        [InlineKeyboardButton("🧾 Dodaj fakturę", callback_data="m:add")],
+        [InlineKeyboardButton("📋 Co mam poprawić", callback_data="mom:todo_now")],
+        [InlineKeyboardButton("📦 Wyślij do księgowej", callback_data="mom:export_now")],
     ])
 
 
@@ -35,46 +34,68 @@ def _mk(rows: list[list[str]]) -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         one_time_keyboard=False,
         selective=True,
+        is_persistent=True,
     )
 
 
-def kb_mama_tiles(large_font: bool = False) -> ReplyKeyboardMarkup:
-    if large_font:
-        return _mk(
-            [
-                ["Dzisiaj dodaj fakture"],
-                ["Co mam poprawic"],
-                ["Wyslij do ksiegowej"],
-                ["Duza czcionka OFF"],
-                ["Cofnij ostatnia akcje"],
-                ["Potrzebuje pomocy"],
-                ["Pomoc"],
-            ]
-        )
-    return _mk(
-        [
-            ["Dodaj fakture", "Co mam poprawic", "Wyslij do ksiegowej"],
-            ["Duza czcionka ON", "Cofnij ostatnia akcje"],
-            ["Potrzebuje pomocy", "Pomoc"],
-        ]
-    )
+def kb_mama_tiles(large_font: bool = False, todo_count: int = 0, today_count: int = 0) -> ReplyKeyboardMarkup:
+    # Senior IT: Dynamic Labels & Layout Cleanup
+    label_today = f"🧾 Dodaj (Dziś: {today_count})"
+    label_todo = f"🔴 {todo_count} do poprawy!" if todo_count > 0 else None
+    
+    # Show Export only at end of month (25th+)
+    show_export = datetime.now().day >= 25
+    btn_export = "📦 Wyslij do ksiegowej" if show_export else None
+
+    rows = []
+    
+    # Row 1: Actions
+    row1 = [label_today]
+    if label_todo: row1.append(label_todo)
+    if btn_export: row1.append(btn_export)
+    rows.append(row1)
+    
+    # Row 2: Intelligence
+    rows.append(["📊 Podsumuj miesiąc", "🧠 ZAPYTAJ AI (RAG)"])
+    
+    # Row 3: Advanced
+    rows.append(["🔮 Prognozuj wydatki", "🚀 DASHBOARD SYSTEMÓW"])
+    
+    # Row 4: Pitch & System
+    rows.append(["💎 PREZENTACJA DLA INWESTORA"])
+    rows.append(["🔙 Cofnij ostatnią akcję", "🆘 Potrzebuję pomocy"])
+    rows.append(["🏠 Wróć do menu"])
+
+    return _mk(rows)
+
+
+def kb_mama_ask_ai() -> ReplyKeyboardMarkup:
+    """Senior IT: Dedicated AI Q&A keyboard."""
+    return _mk([
+        ["❓ Co kupiliśmy ostatnio?"],
+        ["❓ Suma wydatków na paliwo"],
+        ["❓ Najdroższa faktura w tym miesiącu"],
+        ["🔙 Wstecz", "🏠 Wróć do menu"]
+    ])
 
 
 def kb_mama_pick_type(large_font: bool = False) -> ReplyKeyboardMarkup:
     if large_font:
         return _mk(
             [
-                ["Typ VAT"],
-                ["Typ Bez VAT"],
-                ["Cofnij ostatnia akcje"],
-                ["Potrzebuje pomocy"],
+                ["🧾 Typ VAT"],
+                ["🧾 Typ Bez VAT"],
+                ["🔙 Wstecz"],
+                ["🔙 Cofnij ostatnia akcje"],
+                ["🆘 Potrzebuje pomocy"],
+                ["🏠 Wroc do menu"],
             ]
         )
     return _mk(
         [
-            ["Typ VAT", "Typ Bez VAT"],
-            ["Cofnij ostatnia akcje", "Potrzebuje pomocy"],
-            ["Pomoc"],
+            ["🧾 Typ VAT", "🧾 Typ Bez VAT"],
+            ["🔙 Wstecz", "🔙 Cofnij ostatnia akcje"],
+            ["🆘 Potrzebuje pomocy", "🏠 Wroc do menu"],
         ]
     )
 
@@ -83,29 +104,34 @@ def kb_mama_review_tiles(large_font: bool = False) -> ReplyKeyboardMarkup:
     if large_font:
         return _mk(
             [
-                ["Kwota OK"],
-                ["Popraw kwote"],
-                ["Dalej"],
-                ["Cofnij ostatnia akcje"],
+                ["✅ Kwota OK"],
+                ["🖊 Popraw kwote"],
+                ["👉 Dalej"],
+                ["🔙 Wstecz"],
+                ["🔙 Cofnij ostatnia akcje"],
+                ["🆘 Potrzebuje pomocy"],
+                ["🏠 Wroc do menu"],
             ]
         )
     return _mk(
         [
-            ["Kwota OK", "Popraw kwote"],
-            ["Dalej", "Cofnij ostatnia akcje"],
+            ["✅ Kwota OK", "🖊 Popraw kwote"],
+            ["👉 Dalej", "🔙 Wstecz"],
+            ["🔙 Cofnij ostatnia akcje", "🆘 Potrzebuje pomocy"],
+            ["🏠 Wroc do menu"],
         ]
     )
 
 
 def kb_mama_next_only(large_font: bool = False) -> ReplyKeyboardMarkup:
-    return _mk([["Dalej"]])
+    return _mk([["👉 Dalej"], ["🔙 Wstecz"], ["🏠 Wróć do menu"]])
 
 
 def kb_mama_invoice(row_no: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Kwota OK", callback_data=f"mom:ok:{row_no}")],
-        [InlineKeyboardButton("Popraw kwote", callback_data=f"mom:fix:{row_no}")],
-        [InlineKeyboardButton("Menu", callback_data="mom:menu")],
+        [InlineKeyboardButton("✅ Kwota OK", callback_data=f"mom:ok:{row_no}")],
+        [InlineKeyboardButton("🖊️ Popraw kwotę", callback_data=f"mom:fix:{row_no}")],
+        [InlineKeyboardButton("🏠 Menu", callback_data="mom:menu")],
     ])
 
 
@@ -118,24 +144,34 @@ def kb_mama_company_suggestions(companies: list[str], large_font: bool = False) 
     else:
         for i in range(0, len(clean), 2):
             rows.append(clean[i : i + 2])
-    rows.append(["Zostaw OCR"])
-    rows.append(["Popraw recznie"])
+    rows.append(["🤖 Zostaw OCR"])
+    rows.append(["🖊️ Popraw ręcznie"])
+    rows.append(["🔙 Wstecz", "🏠 Wróć do menu"])
     return _mk(rows)
 
 
 
 def kb_mama_amount_confirm() -> ReplyKeyboardMarkup:
-    return _mk([["Tak"], ["Popraw kwote"], ["Wroc do menu"]])
+    return _mk([["✅ Tak"], ["🖊️ Popraw kwotę"], ["🔙 Wstecz", "🏠 Wróć do menu"]])
 def kb_mama_ultra_amount() -> ReplyKeyboardMarkup:
-    return _mk([["Nagraj kwote"], ["Wpisz kwote"], ["Wroc do menu"]])
+    return _mk([["🎤 Nagraj kwotę"], ["💰 Wpisz kwote"], ["🔙 Wstecz", "🏠 Wróć do menu"]])
 
 
 def kb_mama_sos_safe() -> ReplyKeyboardMarkup:
-    return _mk([["Wroc do menu"], ["Poczekaj"]])
+    return _mk([["🏠 Wróć do menu"], ["⌛ Poczekaj"]])
 
 
 def kb_mama_daily_one_button(large_font: bool = False) -> ReplyKeyboardMarkup:
-    return _mk([["Dzisiaj dodaj fakture"]])
+    return _mk([["🧾 Dzisiaj dodaj fakturę"], ["🔙 Wstecz", "🏠 Wróć do menu"]])
+
+
+def kb_mama_cancel(large_font: bool = False) -> ReplyKeyboardMarkup:
+    return _mk([["🔙 Wstecz"], ["🔙 Cofnij ostatnia akcje"], ["🆘 Potrzebuje pomocy"], ["🏠 Wroc do menu"]])
+
+
+def kb_splash() -> ReplyKeyboardMarkup:
+    """Senior IT: App-like splash entry button."""
+    return _mk([["🚀 URUCHOM SYSTEM SALONDANEX"]])
 
 
 def kb_add_type() -> InlineKeyboardMarkup:
@@ -182,6 +218,14 @@ def kb_invoice(row_no: int, link: str) -> InlineKeyboardMarkup:
     ])
 
 
+def kb_ocr_fields(row_no: int, link: str, month: str | None = None) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Numer", callback_data=f"i:ocrf:{row_no}:no"), InlineKeyboardButton("Firma", callback_data=f"i:ocrf:{row_no}:comp")],
+        [InlineKeyboardButton("Data", callback_data=f"i:ocrf:{row_no}:date"), InlineKeyboardButton("Kwota", callback_data=f"i:ocrf:{row_no}:gross")],
+        [InlineKeyboardButton("Powrot", callback_data=f"i:open:{row_no}")],
+    ])
+
+
 def kb_fix(row_no: int, month: str = "") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Ustaw kwote", callback_data=f"i:price:{row_no}")],
@@ -200,4 +244,6 @@ def kb_accountant_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("ZIP (bez zmian statusow)", callback_data="acc:pack_only_year")],
         [InlineKeyboardButton("Menu", callback_data="m:page:1")],
     ])
+
+
 
