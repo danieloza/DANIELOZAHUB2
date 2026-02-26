@@ -11,7 +11,7 @@ Set-Location -Path $PSScriptRoot
 # $env:SPREADSHEET_ID "1xDhM4nIZFnnXcvNKV0HnCeMZ9WiLeG73raaDCrnIy0k"
 # $env:SHEET_NAME="Arkusz1"
 # $env:GOOGLE_SERVICE_ACCOUNT_JSON="danex-faktury-bot.json"
-# $env:TESSERACT_CMD="C:\Users\syfsy\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+# $env:TESSERACT_CMD="C:\Path\To\Tesseract-OCR\tesseract.exe"
 # $env:ALLOWED_USER_IDS="1639287725,7941906792"
 # $env:ENABLE_PANEL="1"
 # $env:PANEL_PORT="8000"
