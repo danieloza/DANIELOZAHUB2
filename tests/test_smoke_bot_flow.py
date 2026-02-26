@@ -121,6 +121,7 @@ def test_handle_file_add_invoice_smoke():
         patch.object(files, "_validate_saved_file", return_value=(True, "")),
         patch.object(files, "next_row", return_value=42),
         patch.object(files, "append_row", return_value=None) as append_row_mock,
+        patch.object(files, "get_all_values", return_value=[["h"], ["r"]]),
         patch.object(files, "missing_fields", return_value=[]),
         patch.object(files, "user_label", return_value="tester"),
         patch.object(files, "INV_DIR", Path("C:/Users/syfsy/danex-faktury-bot/invoices")),
